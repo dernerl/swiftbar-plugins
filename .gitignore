@@ -1,0 +1,6 @@
+# Lokale Pfad-Überschreibung
+config.sh
+
+# macOS
+.DS_Store
+Icon?
