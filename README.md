@@ -8,9 +8,10 @@ den Tool-Repos, die jeweils eine `state.json` schreiben:
 
 | Plugin | Liest | Tool-Repo |
 |---|---|---|
-| `combined.15m.sh` | beide | — |
+| `combined.15m.sh` | Janitor + Watchdog | — |
 | `janitor.30m.sh` | `$JANITOR_DIR/state.json` | [workbench-janitor](https://github.com/dernerl/workbench-janitor) |
 | `token-watchdog.15m.sh` | `$WATCHDOG_DIR/state.json` | `azure-token-watchdog` (privat) |
+| `localhost-radar.1m.sh` | `$RADAR_DIR/state.json` | [localhost-radar](https://github.com/dernerl/localhost-radar) |
 
 Die Trennung ist Absicht: Die Tools laufen eigenständig auf der Kommandozeile und
 wissen nichts von SwiftBar. Umgekehrt sind die Tools hier optional — fehlt eines,
@@ -20,14 +21,20 @@ entfällt sein Abschnitt und der Rest funktioniert weiter.
 das Muster, ist aber ohne das Tool wirkungslos. Wer nur den Janitor nutzt, nimmt
 `./install.sh janitor` — oder `combined`, dessen Watchdog-Abschnitt dann einfach entfällt.
 
+`localhost-radar` bleibt bewusst außerhalb von `combined.15m.sh`: Ports ändern sich
+schneller als Git- oder Token-Status, das Plugin läuft darum auf einem 1-Minuten- statt
+einem 15/30-Minuten-Intervall — und SwiftBar liest das Intervall aus dem Dateinamen, ein
+Plugin kann also nicht zwei Intervalle gleichzeitig bedienen.
+
 ## Installation
 
 ```sh
 git clone https://github.com/dernerl/swiftbar-plugins.git
 cd swiftbar-plugins
-./install.sh                        # nur combined (ein Icon für beides)
-./install.sh janitor token-watchdog # oder zwei getrennte Icons
-./install.sh --list                 # zeigt alle Plugins
+./install.sh                                    # nur combined (ein Icon für beides)
+./install.sh janitor token-watchdog              # oder zwei getrennte Icons
+./install.sh combined localhost-radar            # combined + eigenes Radar-Icon
+./install.sh --list                              # zeigt alle Plugins
 ```
 
 `install.sh` legt `~/.swiftbar-plugins/` an, verlinkt die gewählten Plugins dorthin,
@@ -52,6 +59,7 @@ cp config.example.sh config.sh   # config.sh ist gitignored
 ```sh
 JANITOR_DIR="$HOME/code/workbench-janitor"
 WATCHDOG_DIR="$HOME/code/azure-token-watchdog"
+RADAR_DIR="$HOME/code/localhost-radar"
 ```
 
 ## Aufbau
