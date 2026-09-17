@@ -16,15 +16,18 @@ SWIFTBAR_REPO="${${(%):-%x}:A:h:h}"
 : ${JANITOR_DIR:="$HOME/projects/workbench-janitor"}
 : ${WATCHDOG_DIR:="$HOME/projects/azure-token-watchdog"}
 : ${RADAR_DIR:="$HOME/projects/localhost-radar"}
+: ${STORAGE_JANITOR_DIR:="$HOME/projects/storage-janitor"}
 
 # Ein Tool gilt als vorhanden, wenn sein Entry-Point existiert. Die Plugins
 # rendern nur Abschnitte für tatsächlich installierte Tools.
 have_janitor()  { [[ -f "$JANITOR_DIR/janitor.py" ]] }
 have_watchdog() { [[ -f "$WATCHDOG_DIR/token_watchdog.py" ]] }
 have_radar()    { [[ -f "$RADAR_DIR/localhost_radar.py" ]] }
+have_storage_janitor() { [[ -f "$STORAGE_JANITOR_DIR/storage-janitor.py" ]] }
 
 # Gibt den Pfad aus, wenn das Tool da ist, sonst nichts — als Argument für die
 # Render-Skripte, die einen leeren String als "nicht installiert" lesen.
 janitor_arg()  { have_janitor  && print -r -- "$JANITOR_DIR" }
 watchdog_arg() { have_watchdog && print -r -- "$WATCHDOG_DIR" }
 radar_arg()    { have_radar    && print -r -- "$RADAR_DIR" }
+storage_janitor_arg() { have_storage_janitor && print -r -- "$STORAGE_JANITOR_DIR" }

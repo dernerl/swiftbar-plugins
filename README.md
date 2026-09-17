@@ -8,10 +8,11 @@ den Tool-Repos, die jeweils eine `state.json` schreiben:
 
 | Plugin | Liest | Tool-Repo |
 |---|---|---|
-| `combined.15m.sh` | alle drei | — |
+| `combined.15m.sh` | alle vier | — |
 | `janitor.30m.sh` | `$JANITOR_DIR/state.json` | [workbench-janitor](https://github.com/dernerl/workbench-janitor) |
 | `token-watchdog.15m.sh` | `$WATCHDOG_DIR/state.json` | `azure-token-watchdog` (privat) |
 | `localhost-radar.1m.sh` | `$RADAR_DIR/state.json` | [localhost-radar](https://github.com/dernerl/localhost-radar) |
+| `storage-janitor.30m.sh` | `$STORAGE_JANITOR_DIR/state.json` | [storage-janitor](https://github.com/dernerl/storage-janitor) |
 
 Die Trennung ist Absicht: Die Tools laufen eigenständig auf der Kommandozeile und
 wissen nichts von SwiftBar. Umgekehrt sind die Tools hier optional — fehlt eines,

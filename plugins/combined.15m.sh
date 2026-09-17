@@ -1,12 +1,12 @@
 #!/bin/zsh
-# <xbar.title>Workbench (Janitor + Token Watchdog + localhost-radar)</xbar.title>
-# <xbar.version>v0.3</xbar.version>
+# <xbar.title>Workbench (Janitor + Token Watchdog + localhost-radar + Storage Janitor)</xbar.title>
+# <xbar.version>v0.4</xbar.version>
 # <xbar.author>hug</xbar.author>
 # <xbar.author.github>dernerl</xbar.author.github>
-# <xbar.desc>Ein Menüleisten-Icon für workbench-janitor, azure-token-watchdog und localhost-radar.</xbar.desc>
+# <xbar.desc>Ein Menüleisten-Icon für workbench-janitor, azure-token-watchdog, localhost-radar und storage-janitor.</xbar.desc>
 # <xbar.dependencies>python3,git,gh,az,lsof</xbar.dependencies>
 #
-# Fasst alle drei Tools zu EINEM Icon mit je einem Abschnitt zusammen. Führt bei jedem
+# Fasst alle vier Tools zu EINEM Icon mit je einem Abschnitt zusammen. Führt bei jedem
 # Refresh-Intervall die zugrundeliegenden Checks aus und rendert deren state.json.
 # Fehlt eines der Tools, entfällt sein Abschnitt — das Plugin bleibt nutzbar.
 #
@@ -21,8 +21,9 @@ source "${0:A:h}/../lib/common.sh"
 have_watchdog && ( cd "$WATCHDOG_DIR" && python3 token_watchdog.py >/dev/null 2>&1 )
 have_janitor  && ( cd "$JANITOR_DIR"  && python3 janitor.py --no-notify >/dev/null 2>&1 )
 have_radar    && ( cd "$RADAR_DIR"    && python3 localhost_radar.py >/dev/null 2>&1 )
+have_storage_janitor && ( cd "$STORAGE_JANITOR_DIR" && python3 storage-janitor.py --no-notify >/dev/null 2>&1 )
 
-python3 - "$(watchdog_arg)" "$(janitor_arg)" "$(radar_arg)" << 'PYEOF'
+python3 - "$(watchdog_arg)" "$(janitor_arg)" "$(radar_arg)" "$(storage_janitor_arg)" << 'PYEOF'
 import json
 import sys
 from pathlib import Path
@@ -31,8 +32,9 @@ from urllib.parse import quote
 watchdog_dir = Path(sys.argv[1]) if sys.argv[1] else None
 janitor_dir = Path(sys.argv[2]) if sys.argv[2] else None
 radar_dir = Path(sys.argv[3]) if sys.argv[3] else None
+storage_janitor_dir = Path(sys.argv[4]) if sys.argv[4] else None
 
-if watchdog_dir is None and janitor_dir is None and radar_dir is None:
+if watchdog_dir is None and janitor_dir is None and radar_dir is None and storage_janitor_dir is None:
     print("| sfimage=key.fill sfcolor=red")
     print("---")
     print("Kein Tool gefunden | color=gray")
@@ -58,11 +60,28 @@ def load(path):
 watchdog_state, watchdog_err = load(watchdog_dir / "state.json") if watchdog_dir else (None, None)
 janitor_state, janitor_err = load(janitor_dir / "state.json") if janitor_dir else (None, None)
 radar_state, radar_err = load(radar_dir / "state.json") if radar_dir else (None, None)
+storage_janitor_state, storage_janitor_err = load(storage_janitor_dir / "state.json") if storage_janitor_dir else (None, None)
 
 # --- combined severity for the single icon ---
 SEV_RANK = {"green": 0, None: 0, "blue": 1, "orange": 2, "red": 3}
 watchdog_sev = watchdog_state.get("severity") if watchdog_state else None
 radar_sev = radar_state.get("severity") if radar_state else None
+
+storage_janitor_summary = (storage_janitor_state or {}).get("summary", {})
+if storage_janitor_state is None:
+    storage_janitor_sev = None
+else:
+    sj_free_gb = storage_janitor_state.get("disk_free_gb", 999)
+    sj_warn_gb = storage_janitor_state.get("warn_gb", 20)
+    sj_critical_gb = storage_janitor_state.get("critical_gb", 8)
+    if sj_free_gb <= sj_critical_gb:
+        storage_janitor_sev = "red"
+    elif sj_free_gb <= sj_warn_gb or storage_janitor_summary.get("orphan_candidates"):
+        storage_janitor_sev = "orange"
+    elif storage_janitor_summary.get("trimmed"):
+        storage_janitor_sev = "blue"
+    else:
+        storage_janitor_sev = "green"
 
 janitor_summary = (janitor_state or {}).get("summary", {})
 if janitor_state is None:
@@ -76,7 +95,7 @@ elif sum(janitor_summary.values()):
 else:
     janitor_sev = "green"
 
-worst = max([watchdog_sev, janitor_sev, radar_sev], key=lambda s: SEV_RANK.get(s, 0))
+worst = max([watchdog_sev, janitor_sev, radar_sev, storage_janitor_sev], key=lambda s: SEV_RANK.get(s, 0))
 
 # total open items across all tools, for the small numeric badge
 watchdog_issues = 0
@@ -97,7 +116,9 @@ janitor_issues = sum(janitor_summary.values()) if janitor_summary else 0
 # nur "exposed" (über loopback hinaus erreichbare) Ports zählen als Issue, nicht jeder
 # offene Port — sonst würde die Badge-Zahl "N Probleme" suggerieren statt "N Ports".
 radar_issues = sum(1 for p in (radar_state or {}).get("ports", []) if p.get("bind") == "exposed")
-total = watchdog_issues + janitor_issues + radar_issues
+# nur Orphan-Kandidaten zählen als Issue — auto-safe getrimmte Einträge sind bereits erledigt.
+storage_janitor_issues = storage_janitor_summary.get("orphan_candidates", 0)
+total = watchdog_issues + janitor_issues + radar_issues + storage_janitor_issues
 
 # Native SF Symbol look: monochrome template icon, only tinted when something
 # needs attention (matches the plain shield/gear/arrow icons in the menu bar
@@ -158,6 +179,8 @@ if watchdog_dir is not None:
         print(f"--state.json nicht lesbar: {clean(watchdog_err)}")
         print("--Einmal `python3 token_watchdog.py` laufen lassen | color=gray")
     else:
+        generated = watchdog_state.get("generated", "")[:16].replace("T", " ")
+        print(f"--Azure Token Watchdog — Stand {generated} | color=gray")
         if watchdog_state.get("no_default_set"):
             print("--🟠 Keine Default Subscription gesetzt")
         ds = watchdog_state.get("default_subscription")
@@ -201,6 +224,43 @@ if radar_dir is not None:
             if p.get("cwd") and p["cwd"] != "/":
                 print(f"----Ordner öffnen | href={file_url(Path(p['cwd']))}")
         print(f"--Report öffnen | href={file_url(radar_dir / 'reports' / 'latest.md')}")
+    print("---")
+
+# --- Section 4: Storage Janitor ---
+if storage_janitor_dir is not None:
+    print("🧺 Storage Janitor | color=gray")
+    if storage_janitor_err:
+        print(f"--state.json nicht lesbar: {clean(storage_janitor_err)}")
+        print("--Einmal `python3 storage-janitor.py` laufen lassen | color=gray")
+    else:
+        generated = storage_janitor_state.get("generated", "")[:16].replace("T", " ")
+        print(f"--Storage Janitor — Stand {generated} | color=gray")
+        free_gb = storage_janitor_state.get("disk_free_gb", 0)
+        total_gb = storage_janitor_state.get("disk_total_gb", 0)
+        warn_gb = storage_janitor_state.get("warn_gb", 20)
+        critical_gb = storage_janitor_state.get("critical_gb", 8)
+        print(f"--Frei: {free_gb:.1f} GB / {total_gb:.1f} GB | color=gray")
+        if free_gb <= critical_gb:
+            print(f"--🔴 Speicherplatz kritisch ({free_gb:.1f} GB frei)")
+        elif free_gb <= warn_gb:
+            print(f"--🟡 Speicherplatz knapp ({free_gb:.1f} GB frei)")
+        trimmed = storage_janitor_state.get("trimmed", [])
+        if trimmed:
+            freed_mb = storage_janitor_summary.get("freed_mb", 0)
+            print(f"--🧹 Auto-safe getrimmt ({len(trimmed)}, {freed_mb:.0f} MB)")
+            for t in sorted(trimmed, key=lambda x: -x.get("freed_mb", 0)):
+                print(f"----{clean(t['name'])} — {t.get('freed_mb', 0):.0f} MB frei")
+        skipped = storage_janitor_state.get("skipped", [])
+        if skipped:
+            print(f"--⏭️ Übersprungen ({len(skipped)})")
+            for s in skipped:
+                print(f"----{clean(s['name'])} — {clean(s.get('reason', ''))}")
+        candidates = storage_janitor_state.get("orphan_candidates", [])
+        if candidates:
+            print(f"--🟠 Verwaiste Kandidaten ({len(candidates)})")
+            for c in sorted(candidates, key=lambda x: -x.get("size_mb", 0)):
+                print(f"----{clean(c['name'])} ({c.get('size_mb', 0):.0f} MB) — {clean(c.get('reason', ''))}")
+        print(f"--Report öffnen | href={file_url(storage_janitor_dir / 'reports' / 'latest.md')}")
     print("---")
 
 print("Jetzt aktualisieren | refresh=true")
