@@ -28,6 +28,12 @@ einzelnes SwiftBar-Plugin nur ein Intervall haben (aus dem Dateinamen). Wer aktu
 Radar-Updates will, installiert zusätzlich `localhost-radar.1m.sh` als eigenes Icon:
 `./install.sh combined localhost-radar`.
 
+Der Janitor-Abschnitt (in `combined.15m.sh` und `janitor.30m.sh`) hat außerdem einen
+"🖥️ Dashboard öffnen"-Eintrag, der `$JANITOR_DIR/dashboard.sh open` per SwiftBars `bash=`-Param
+ausführt — startet workbench-janitors statisches Localhost-Dashboard bei Bedarf und öffnet es
+im Browser. Erste `bash=`-Aktion in diesem Repo (bisher nur `href=`-Links); idempotent, ein
+zweiter Klick startet keinen weiteren Server.
+
 ## Installation
 
 ```sh

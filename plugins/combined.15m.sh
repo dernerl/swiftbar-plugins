@@ -170,6 +170,7 @@ if janitor_dir is not None:
                 print(f"----{clean(p['name'])}: {clean(branches)} | href={file_url(workbench / p['name'])}")
         print(f"--Report öffnen | href={file_url(janitor_dir / 'reports' / 'latest.md')}")
         print(f"--Workbench öffnen | href={file_url(workbench)}")
+        print(f"--🖥️ Dashboard öffnen | bash={janitor_dir / 'dashboard.sh'} param1=open terminal=false")
     print("---")
 
 # --- Section 2: Azure Token Watchdog ---
