@@ -22,6 +22,8 @@ have_watchdog && ( cd "$WATCHDOG_DIR" && python3 token_watchdog.py >/dev/null 2>
 have_janitor  && ( cd "$JANITOR_DIR"  && python3 janitor.py --no-notify >/dev/null 2>&1 )
 have_radar    && ( cd "$RADAR_DIR"    && python3 localhost_radar.py >/dev/null 2>&1 )
 have_storage_janitor && ( cd "$STORAGE_JANITOR_DIR" && python3 storage-janitor.py --no-notify >/dev/null 2>&1 )
+# Treemap-Scan höchstens einmal am Tag, im Hintergrund (dauert ~1 min) — blockiert das Menü nicht
+have_storage_janitor && [[ -f "$STORAGE_JANITOR_DIR/disk-scan.py" ]] && ( cd "$STORAGE_JANITOR_DIR" && python3 disk-scan.py --max-age-hours 24 --background >/dev/null 2>&1 )
 
 python3 - "$(watchdog_arg)" "$(janitor_arg)" "$(radar_arg)" "$(storage_janitor_arg)" << 'PYEOF'
 import json
@@ -48,6 +50,56 @@ def clean(s: str) -> str:
 
 def file_url(p: Path) -> str:
     return "file://" + quote(str(p))
+
+
+def scan_menu(tool_dir: Path, p: str) -> None:
+    """Treemap-Dashboard: Scan-Stand, größte Ordner, Wachstum — Einträge öffnen das Dashboard."""
+    dash = tool_dir / "dashboard.sh"
+    try:
+        scan = json.loads((tool_dir / "scans" / "latest.json").read_text(encoding="utf-8"))
+        growth = json.loads((tool_dir / "scans" / "growth.json").read_text(encoding="utf-8"))
+    except Exception:
+        print(f"{p}🖥️ Dashboard öffnen (erster Scan startet) | bash={dash} param1=open terminal=false")
+        return
+    from datetime import datetime
+    hours = (datetime.now() - datetime.fromisoformat(scan["generated"])).total_seconds() / 3600
+    age = f"vor {hours * 60:.0f} min" if hours < 1 else f"vor {hours:.0f} h"
+    mode = "vollständig" if scan.get("privileged") else "ohne sudo"
+    print(f"{p}🖥️ Dashboard öffnen | bash={dash} param1=open terminal=false")
+    print(f"{p}🗺️ Scan {age} · {mode} | color=gray")
+
+    # „Größte Ordner“ = Ordner ≥ 1 GB, von denen kein Unterordner selbst ≥ 1 GB ist —
+    # also die konkreten Brocken statt „Users“ oder „Library“.
+    # Ketten nach oben zusammenfassen: macht ein Ordner ≥ 80 % seines Parents aus, zählt der Parent
+    # (sonst stünde „…/Symbols/System/Library/PrivateFrameworks“ statt „~/Library/Developer“).
+    hot = {}
+    def walk(n, chain):
+        big = [c for c in n.get("c", []) if c.get("c") and not c.get("rest") and c["s"] >= 1e9]
+        for c in big:
+            walk(c, chain + [c])
+        if not big and len(chain) > 2:
+            i = len(chain) - 1
+            while i > 2 and chain[i]["s"] >= 0.8 * chain[i - 1]["s"]:
+                i -= 1
+            hot["/" + "/".join(x["n"] for x in chain[1:i + 1])] = chain[i]["s"]
+    walk(scan["tree"], [scan["tree"]])
+
+    def short(path: str) -> str:
+        path = path.replace(str(Path.home()), "~", 1) if path.startswith(str(Path.home())) else path
+        return path if len(path) <= 56 else path[:24] + "…" + path[-31:]
+
+    if hot:
+        print(f"{p}📦 Größte Ordner")
+        for path, size in sorted(hot.items(), key=lambda x: -x[1])[:8]:
+            print(f"{p}--{size / 1e9:.1f} GB  {clean(short(path))} | bash={dash} param1=open param2=#{quote(path, safe='')} terminal=false")
+
+    grown = growth.get("grown", [])
+    if grown:
+        print(f"{p}📈 Gewachsen seit letztem Scan ({len(grown)})")
+        for g in grown[:8]:
+            path = "/" + "/".join(g["p"].split("/")[1:])
+            print(f"{p}--+{g['d'] / 1e6:,.0f} MB  {clean(short(path))} | bash={dash} param1=open param2=?tab=growth&metric=growth terminal=false")
+    print(f"{p}🔍 Jetzt scannen | bash={dash} param1=scan terminal=false")
 
 
 def load(path):
@@ -261,6 +313,7 @@ if storage_janitor_dir is not None:
             print(f"--🟠 Verwaiste Kandidaten ({len(candidates)})")
             for c in sorted(candidates, key=lambda x: -x.get("size_mb", 0)):
                 print(f"----{clean(c['name'])} ({c.get('size_mb', 0):.0f} MB) — {clean(c.get('reason', ''))}")
+        scan_menu(storage_janitor_dir, "--")
         print(f"--Report öffnen | href={file_url(storage_janitor_dir / 'reports' / 'latest.md')}")
     print("---")
 
