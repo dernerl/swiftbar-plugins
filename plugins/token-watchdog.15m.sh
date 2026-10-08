@@ -1,14 +1,14 @@
 #!/bin/zsh
 # <xbar.title>Azure Token Watchdog</xbar.title>
-# <xbar.version>v0.2</xbar.version>
+# <xbar.version>v0.3</xbar.version>
 # <xbar.author>hug</xbar.author>
 # <xbar.author.github>dernerl</xbar.author.github>
 # <xbar.desc>Zeigt den Live-Gesundheitszustand des lokalen az-CLI-Token-Caches in der Menüleiste.</xbar.desc>
 # <xbar.dependencies>python3,az</xbar.dependencies>
 #
 # Nur der Watchdog, ohne Janitor — Alternative zu combined.15m.sh. Führt bei
-# jedem Refresh einen echten token_watchdog.py-Lauf aus (Live-Check gegen az,
-# <0.5s) und rendert dessen state.json.
+# jedem Refresh einen echten token_watchdog.py-Lauf aus (fordert pro Identität/
+# Tenant ARM- und Graph-Tokens an, ~10s) und rendert dessen state.json.
 
 source "${0:A:h}/../lib/common.sh"
 
@@ -51,9 +51,9 @@ def file_url(p: Path) -> str:
 SEVERITY_COLOR = {"red": "color=red", "orange": "color=orange", "green": ""}
 STATUS_MARK = {"dead": "🔴", "partial": "🟠", "ok": "🟢", "no-subscription-context": "⚪"}
 STATUS_LABEL = {
-    "dead": "gecachte Subscriptions lösen live nicht mehr auf",
-    "partial": "manche gecachten Subscriptions lösen live nicht mehr auf",
-    "ok": "alle gecachten Subscriptions lösen live auf",
+    "dead": "kein ARM-Token mehr — az login nötig",
+    "partial": "einzelne ARM-/Graph-Tokens fehlen",
+    "ok": "ARM- und Graph-Tokens in allen Tenants",
     "no-subscription-context": "kein Subscription-Kontext gecacht",
 }
 
@@ -73,15 +73,10 @@ if state.get("no_default_set"):
 elif ds:
     mark = "🔴" if ds.get("dead") else "🟢"
     print(f"{mark} Default: {clean(ds.get('name'))} ({clean(ds.get('user'))})")
-print("---")
-
-drift = state.get("drift", 0)
-cached_n = state.get("cached_subscription_count", 0)
-live_n = state.get("live_subscription_count", 0)
-if drift:
-    print(f"🟠 Cache-Drift: {cached_n} gecacht vs. {live_n} live")
-else:
-    print(f"Cache im Sync: {cached_n} Subscriptions | color=gray")
+    if ds.get("dead"):
+        print(f"--{clean(', '.join(ds.get('error') or []))} | color=gray")
+    elif ds.get("expires_on"):
+        print(f"--ARM-Token gültig bis {clean(str(ds['expires_on'])[:16])} | color=gray")
 print("---")
 
 SEVERITY_MARK = {"red": "🔴", "orange": "🟠", "green": "🟢"}
@@ -98,7 +93,8 @@ for ctx in contexts:
         print("----Keine Default Subscription gesetzt | color=gray")
     elif cds:
         cmark = "🔴" if cds.get("dead") else "🟢"
-        print(f"----{cmark} Default: {clean(cds.get('name'))} ({'tot' if cds.get('dead') else 'lebt'}) | color=gray")
+        status = "tot: " + ", ".join(cds.get("error") or []) if cds.get("dead") else "lebt"
+        print(f"----{cmark} Default: {clean(cds.get('name'))} ({clean(status)}) | color=gray")
     if ctx.get("project_root"):
         print(f"----Projekt öffnen | href={file_url(Path(ctx['project_root']))}")
 print("---")
@@ -115,6 +111,11 @@ for ident in state.get("identities", []):
     mark = STATUS_MARK.get(ident["status"], "⚪")
     label = STATUS_LABEL.get(ident["status"], "")
     print(f"--{mark} {clean(ident['username'])} — {label}")
+    for t in ident.get("tenants", []):
+        for resource in ("arm", "graph"):
+            probe = t.get(resource) or {}
+            if not probe.get("ok", True):
+                print(f"----{clean(t.get('tenant'))} {resource.upper()}: {clean(', '.join(probe.get('error') or []))} | color=gray")
 print("---")
 
 print(f"Report öffnen | href={file_url(watchdog_dir / 'reports' / 'latest.md')}")
