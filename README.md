@@ -10,7 +10,7 @@ den Tool-Repos, die jeweils eine `state.json` schreiben:
 |---|---|---|
 | `combined.15m.sh` | alle vier | — |
 | `janitor.30m.sh` | `$JANITOR_DIR/state.json` | [workbench-janitor](https://github.com/dernerl/workbench-janitor) |
-| `token-watchdog.15m.sh` | `$WATCHDOG_DIR/state.json` | `azure-token-watchdog` (privat) |
+| `token-watchdog.15m.sh` | `$WATCHDOG_DIR/state.json` | [`azure-token-watchdog`](https://github.com/dernerl/azure-token-watchdog) |
 | `localhost-radar.1m.sh` | `$RADAR_DIR/state.json` | [localhost-radar](https://github.com/dernerl/localhost-radar) |
 | `storage-janitor.30m.sh` | `$STORAGE_JANITOR_DIR/state.json` | [storage-janitor](https://github.com/dernerl/storage-janitor) |
 
@@ -18,8 +18,8 @@ Die Trennung ist Absicht: Die Tools laufen eigenständig auf der Kommandozeile u
 wissen nichts von SwiftBar. Umgekehrt sind die Tools hier optional — fehlt eines,
 entfällt sein Abschnitt und der Rest funktioniert weiter.
 
-`azure-token-watchdog` ist ein privates Repo; sein Plugin bleibt hier als Referenz für
-das Muster, ist aber ohne das Tool wirkungslos. Wer nur den Janitor nutzt, nimmt
+[`azure-token-watchdog`](https://github.com/dernerl/azure-token-watchdog) ist ein eigenes
+Repo; ohne das Tool ist sein Plugin wirkungslos. Wer nur den Janitor nutzt, nimmt
 `./install.sh janitor` — oder `combined`, dessen Watchdog-Abschnitt dann einfach entfällt.
 
 `localhost-radar` läuft in `combined.15m.sh` im selben 15-Minuten-Takt wie die anderen

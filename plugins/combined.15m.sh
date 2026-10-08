@@ -155,7 +155,6 @@ if watchdog_state:
     watchdog_issues += 1 if watchdog_state.get("no_default_set") else 0
     ds = watchdog_state.get("default_subscription")
     watchdog_issues += 1 if (ds and ds.get("dead")) else 0
-    watchdog_issues += 1 if watchdog_state.get("drift") else 0
     watchdog_issues += sum(
         1 for i in watchdog_state.get("identities", []) if i["status"] in ("dead", "partial")
     )
@@ -163,7 +162,6 @@ if watchdog_state:
         watchdog_issues += 1 if ctx.get("no_default_set") else 0
         cds = ctx.get("default_subscription")
         watchdog_issues += 1 if (cds and cds.get("dead")) else 0
-        watchdog_issues += 1 if ctx.get("drift") else 0
 janitor_issues = sum(janitor_summary.values()) if janitor_summary else 0
 # nur "exposed" (über loopback hinaus erreichbare) Ports zählen als Issue, nicht jeder
 # offene Port — sonst würde die Badge-Zahl "N Probleme" suggerieren statt "N Ports".
