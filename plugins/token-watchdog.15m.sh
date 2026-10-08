@@ -75,8 +75,6 @@ elif ds:
     print(f"{mark} Default: {clean(ds.get('name'))} ({clean(ds.get('user'))})")
     if ds.get("dead"):
         print(f"--{clean(', '.join(ds.get('error') or []))} | color=gray")
-    elif ds.get("expires_on"):
-        print(f"--ARM-Token gültig bis {clean(str(ds['expires_on'])[:16])} | color=gray")
 print("---")
 
 SEVERITY_MARK = {"red": "🔴", "orange": "🟠", "green": "🟢"}
