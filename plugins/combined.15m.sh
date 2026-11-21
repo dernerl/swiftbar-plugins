@@ -37,7 +37,7 @@ radar_dir = Path(sys.argv[3]) if sys.argv[3] else None
 storage_janitor_dir = Path(sys.argv[4]) if sys.argv[4] else None
 
 if watchdog_dir is None and janitor_dir is None and radar_dir is None and storage_janitor_dir is None:
-    print("| sfimage=key.fill sfcolor=red")
+    print("| sfimage=square.stack.3d.up sfcolor=red")
     print("---")
     print("Kein Tool gefunden | color=gray")
     print("Pfade in config.sh setzen — siehe config.example.sh | color=gray")
@@ -165,7 +165,7 @@ if watchdog_state:
 janitor_issues = sum(janitor_summary.values()) if janitor_summary else 0
 # nur "exposed" (über loopback hinaus erreichbare) Ports zählen als Issue, nicht jeder
 # offene Port — sonst würde die Badge-Zahl "N Probleme" suggerieren statt "N Ports".
-radar_issues = sum(1 for p in (radar_state or {}).get("ports", []) if p.get("bind") == "exposed")
+radar_issues = sum(1 for p in (radar_state or {}).get("ports", []) if p.get("bind") == "exposed" and p.get("kind", "app") == "app")
 # nur Orphan-Kandidaten zählen als Issue — auto-safe getrimmte Einträge sind bereits erledigt.
 storage_janitor_issues = storage_janitor_summary.get("orphan_candidates", 0)
 total = watchdog_issues + janitor_issues + radar_issues + storage_janitor_issues
@@ -176,12 +176,12 @@ total = watchdog_issues + janitor_issues + radar_issues + storage_janitor_issues
 SF_COLOR = {"red": "sfcolor=red", "orange": "sfcolor=orange"}
 sf_color = SF_COLOR.get(worst, "")
 title = f" {total}" if total else ""
-print(f"{title} | sfimage=key.fill {sf_color}".strip())
+print(f"{title} | sfimage=square.stack.3d.up {sf_color}".strip())
 print("---")
 
 # --- Section 1: Workbench Janitor ---
 if janitor_dir is not None:
-    print("🧹 Workbench Janitor | color=gray")
+    print("Workbench Janitor | sfimage=tray.full")
     if janitor_err:
         print(f"--state.json nicht lesbar: {clean(janitor_err)}")
         print("--Einmal `python3 janitor.py` laufen lassen | color=gray")
@@ -225,7 +225,7 @@ if janitor_dir is not None:
 
 # --- Section 2: Azure Token Watchdog ---
 if watchdog_dir is not None:
-    print("🔑 Azure Token Watchdog | color=gray")
+    print("Azure Token Watchdog | sfimage=person.badge.key")
     if watchdog_err:
         print(f"--state.json nicht lesbar: {clean(watchdog_err)}")
         print("--Einmal `python3 token_watchdog.py` laufen lassen | color=gray")
@@ -255,23 +255,25 @@ if watchdog_dir is not None:
 
 # --- Section 3: localhost-radar ---
 if radar_dir is not None:
-    print("📡 localhost-radar | color=gray")
+    print("localhost-radar | sfimage=network")
     if radar_err:
         print(f"--state.json nicht lesbar: {clean(radar_err)}")
         print("--Einmal `python3 localhost_radar.py` laufen lassen | color=gray")
     else:
         generated = radar_state.get("generated", "")[:16].replace("T", " ")
         print(f"--localhost-radar — Stand {generated} | color=gray")
-        ports = radar_state.get("ports", [])
+        # Nur lokale Web-Apps; Hintergrund-Sockets installierter Programme stehen im Report.
+        ports = [p for p in radar_state.get("ports", []) if p.get("kind", "app") == "app"]
         if not ports:
-            print("--Keine offenen Ports | color=gray")
+            print("--Keine lokalen Apps aktiv | color=gray")
         for p in ports:
             port = p["port"]
             project = p.get("project")
             command = clean(p.get("command", "?"))
-            bind_mark = "🌐" if p.get("bind") == "exposed" else "🏠"
-            label = f"{clean(project)} ({command})" if project else command
-            print(f"--{bind_mark} :{port} — {label} | href=http://localhost:{port}")
+            # house = nur loopback, globe = auch im Netz erreichbar
+            sym = "globe" if p.get("bind") == "exposed" else "house"
+            label = clean(project) if project else command
+            print(f"--{label}  :{port} | href=http://localhost:{port} sfimage={sym}")
             if p.get("cwd") and p["cwd"] != "/":
                 print(f"----Ordner öffnen | href={file_url(Path(p['cwd']))}")
         print(f"--Report öffnen | href={file_url(radar_dir / 'reports' / 'latest.md')}")
@@ -279,7 +281,7 @@ if radar_dir is not None:
 
 # --- Section 4: Storage Janitor ---
 if storage_janitor_dir is not None:
-    print("🧺 Storage Janitor | color=gray")
+    print("Storage Janitor | sfimage=internaldrive")
     if storage_janitor_err:
         print(f"--state.json nicht lesbar: {clean(storage_janitor_err)}")
         print("--Einmal `python3 storage-janitor.py` laufen lassen | color=gray")

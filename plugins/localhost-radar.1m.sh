@@ -14,7 +14,7 @@
 source "${0:A:h}/../lib/common.sh"
 
 if ! have_radar; then
-    print "📡 ⚠️"
+    print "| sfimage=network sfcolor=red"
     print -- "---"
     print "localhost-radar nicht gefunden unter $RADAR_DIR | color=gray"
     print "Pfad in config.sh setzen — siehe config.example.sh | color=gray"
@@ -35,7 +35,7 @@ radar_dir = Path(sys.argv[1])
 try:
     state = json.loads((radar_dir / "state.json").read_text(encoding="utf-8"))
 except Exception as e:
-    print("📡 ⚠️")
+    print("| sfimage=network sfcolor=red")
     print("---")
     print(f"state.json nicht lesbar: {e}")
     sys.exit(0)
@@ -49,28 +49,29 @@ def file_url(p: Path) -> str:
     return "file://" + quote(str(p))
 
 
-count = state.get("count", 0)
+# Nur lokale Web-Apps; Hintergrund-Sockets installierter Programme stehen im Report.
+ports = [p for p in state.get("ports", []) if p.get("kind", "app") == "app"]
+count = len(ports)
 severity = state.get("severity", "green")
-color = "color=orange" if severity == "orange" else ""
-title = "📡" if not count else f"📡 {count}"
-print(f"{title} | {color}".strip())
+color = "sfcolor=orange" if severity == "orange" else ""
+title = f" {count}" if count else ""
+print(f"{title} | sfimage=network {color}".strip())
 print("---")
 
 generated = state.get("generated", "")[:16].replace("T", " ")
 print(f"localhost-radar — Stand {generated} | color=gray")
 print("---")
 
-ports = state.get("ports", [])
 if not ports:
-    print("Keine offenen Ports | color=gray")
+    print("Keine lokalen Apps aktiv | color=gray")
 else:
     for p in ports:
         port = p["port"]
         project = p.get("project")
         command = clean(p.get("command", "?"))
-        bind_mark = "🌐" if p.get("bind") == "exposed" else "🏠"
-        label = f"{clean(project)} ({command})" if project else command
-        print(f"{bind_mark} :{port} — {label} | href=http://localhost:{port}")
+        sym = "globe" if p.get("bind") == "exposed" else "house"
+        label = clean(project) if project else command
+        print(f"{label}  :{port} | href=http://localhost:{port} sfimage={sym}")
         if p.get("cwd") and p["cwd"] != "/":
             print(f"--Ordner öffnen | href={file_url(Path(p['cwd']))}")
         print(f"--PID {p['pid']} · User {clean(p.get('user') or '?')} | color=gray")

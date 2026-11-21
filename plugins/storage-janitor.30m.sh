@@ -14,7 +14,7 @@
 source "${0:A:h}/../lib/common.sh"
 
 if ! have_storage_janitor; then
-    print "🧺 ⚠️"
+    print "| sfimage=internaldrive sfcolor=red"
     print -- "---"
     print "storage-janitor nicht gefunden unter $STORAGE_JANITOR_DIR | color=gray"
     print "Pfad in config.sh setzen — siehe config.example.sh | color=gray"
@@ -36,7 +36,7 @@ tool_dir = Path(sys.argv[1])
 try:
     state = json.loads((tool_dir / "state.json").read_text(encoding="utf-8"))
 except Exception as e:
-    print("🧺 ⚠️")
+    print("| sfimage=internaldrive sfcolor=red")
     print("---")
     print(f"state.json nicht lesbar: {e}")
     sys.exit(0)
@@ -115,8 +115,9 @@ elif summary.get("trimmed", 0):
 else:
     badge_color = ""
 
-title = "🧺" if not orphans else f"🧺 {orphans}"
-print(f"{title} | {badge_color}".strip())
+title = f" {orphans}" if orphans else ""
+sf_color = badge_color.replace("color=", "sfcolor=")
+print(f"{title} | sfimage=internaldrive {sf_color}".strip())
 print("---")
 
 generated = state.get("generated", "")[:16].replace("T", " ")
